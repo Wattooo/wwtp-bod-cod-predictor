@@ -1,0 +1,25 @@
+{
+  "NEQS_BOD": 80,
+  "NEQS_COD": 150,
+  "NEQS_TSS": 150,
+  "NEQS_pH_low": 6,
+  "NEQS_pH_high": 9,
+  "TSS_trigger": 100,
+  "BOD_exceedance_rate": 86.7,
+  "COD_exceedance_rate": 89.6,
+  "model_BOD_R2": 0.8124,
+  "model_COD_R2": 0.8106,
+  "feature_cols": [
+    "pH",
+    "Temperature (\u00b0C)",
+    "DO (mg/L)",
+    "Turbidity (NTU)",
+    "TDS (mg/L)",
+    "EC (\u00b5S/cm)",
+    "TSS (mg/L)",
+    "Monsoon_Flag",
+    "Rain_Event_Flag"
+  ],
+  "training_rows": 5578,
+  "training_periods": "CDA WWTP I-9/1: Jul 2009-Jun 2010 (compliant) + Feb-Oct 2025 (operational)"
+}
