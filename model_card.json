@@ -1,0 +1,200 @@
+{
+  "features": [
+    "pH",
+    "Temperature (\u00b0C)",
+    "DO (mg/L)",
+    "Turbidity (NTU)",
+    "TDS (mg/L)",
+    "EC (\u00b5S/cm)",
+    "TSS (mg/L)",
+    "Aeration Tank",
+    "Effluent",
+    "Inlet"
+  ],
+  "stages": [
+    "Aeration Tank",
+    "Effluent",
+    "Inlet"
+  ],
+  "sklearn": "1.6.1",
+  "pandas": "2.2.3",
+  "numpy": "2.4.6",
+  "note": "Trained on plant rows plus lab rows with measured targets. No rain input. Intervals are 90% half-widths from blocked cross-validation residuals.",
+  "bod": {
+    "n_train": 2400,
+    "interval_half_width_90": {
+      "Aeration Tank": 92.02073576931596,
+      "Effluent": 45.07032840821374,
+      "Inlet": 56.62091656976784
+    },
+    "stage_mean": {
+      "Aeration Tank": 323.1513174404015,
+      "Effluent": 124.95179677819084,
+      "Inlet": 209.94811557788947
+    },
+    "blocked_R2": 0.8379460198870597,
+    "blocked_MAPE_pct": 15.973159088131226
+  },
+  "cod": {
+    "n_train": 2508,
+    "interval_half_width_90": {
+      "Aeration Tank": 214.70760693418458,
+      "Effluent": 114.35928215102018,
+      "Inlet": 141.34353010542037
+    },
+    "stage_mean": {
+      "Aeration Tank": 626.858343337335,
+      "Effluent": 261.6820877817319,
+      "Inlet": 443.2463942307692
+    },
+    "blocked_R2": 0.752433760708715,
+    "blocked_MAPE_pct": 18.861815669012948
+  },
+  "ranges": {
+    "Aeration Tank": {
+      "pH": {
+        "p5": 6.31,
+        "p50": 6.68,
+        "p95": 7.03
+      },
+      "Temperature (\u00b0C)": {
+        "p5": 14.360000000000001,
+        "p50": 24.5,
+        "p95": 30.2
+      },
+      "DO (mg/L)": {
+        "p5": 0.12,
+        "p50": 0.6,
+        "p95": 1.0439999999999998
+      },
+      "Turbidity (NTU)": {
+        "p5": 71.52,
+        "p50": 116.7,
+        "p95": 166.34
+      },
+      "TDS (mg/L)": {
+        "p5": 621.2,
+        "p50": 894.0,
+        "p95": 1108.0
+      },
+      "EC (\u00b5S/cm)": {
+        "p5": 800.0,
+        "p50": 1161.0,
+        "p95": 1459.4
+      },
+      "TSS (mg/L)": {
+        "p5": 1643.6000000000001,
+        "p50": 2652.0,
+        "p95": 3421.3999999999996
+      }
+    },
+    "Effluent": {
+      "pH": {
+        "p5": 6.8,
+        "p50": 7.11,
+        "p95": 7.42
+      },
+      "Temperature (\u00b0C)": {
+        "p5": 12.2,
+        "p50": 22.9,
+        "p95": 28.889999999999997
+      },
+      "DO (mg/L)": {
+        "p5": 0.69,
+        "p50": 1.45,
+        "p95": 2.19
+      },
+      "Turbidity (NTU)": {
+        "p5": 44.839999999999996,
+        "p50": 87.2,
+        "p95": 127.88
+      },
+      "TDS (mg/L)": {
+        "p5": 365.1,
+        "p50": 525.0,
+        "p95": 678.0
+      },
+      "EC (\u00b5S/cm)": {
+        "p5": 494.1,
+        "p50": 744.0,
+        "p95": 1009.9
+      },
+      "TSS (mg/L)": {
+        "p5": 63.0,
+        "p50": 114.0,
+        "p95": 171.89999999999998
+      }
+    },
+    "Inlet": {
+      "pH": {
+        "p5": 7.14,
+        "p50": 7.44,
+        "p95": 7.73
+      },
+      "Temperature (\u00b0C)": {
+        "p5": 13.0,
+        "p50": 23.1,
+        "p95": 29.044999999999995
+      },
+      "DO (mg/L)": {
+        "p5": 0.015500000000000043,
+        "p50": 0.38,
+        "p95": 0.77
+      },
+      "Turbidity (NTU)": {
+        "p5": 175.81,
+        "p50": 255.60000000000002,
+        "p95": 353.15999999999997
+      },
+      "TDS (mg/L)": {
+        "p5": 312.55,
+        "p50": 575.0,
+        "p95": 728.0
+      },
+      "EC (\u00b5S/cm)": {
+        "p5": 457.55,
+        "p50": 894.0,
+        "p95": 1180.4499999999998
+      },
+      "TSS (mg/L)": {
+        "p5": 147.55,
+        "p50": 227.0,
+        "p95": 315.0
+      }
+    }
+  },
+  "validation": {
+    "plant_blocked_R2": {
+      "BOD": 0.841,
+      "COD": 0.757
+    },
+    "skill_over_stage_mean": {
+      "BOD": 0.58,
+      "COD": 0.464
+    },
+    "within_effluent_R2": {
+      "BOD": 0.396,
+      "COD": 0.286
+    },
+    "lab_R2": {
+      "BOD": 0.882,
+      "COD": 0.858
+    },
+    "lab_MAPE_pct": {
+      "BOD": 9.36,
+      "COD": 10.15
+    },
+    "lab_stage_mean_R2": {
+      "BOD": 0.873,
+      "COD": 0.855
+    },
+    "lab_stage_mean_MAPE_pct": {
+      "BOD": 9.84,
+      "COD": 9.37
+    },
+    "lab_n": {
+      "BOD": 27,
+      "COD": 135
+    }
+  }
+}
