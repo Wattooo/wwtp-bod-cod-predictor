@@ -1,6 +1,6 @@
 streamlit==1.40.2
 streamlit-echarts==0.4.0
 numpy==2.4.6
-pandas==2.2.3
-scikit-learn==1.6.1
+pandas==2.3.3
+scikit-learn==1.7.2
 joblib==1.6.0
