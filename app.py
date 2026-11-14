@@ -11,7 +11,7 @@ import streamlit as st
 from streamlit_echarts import st_echarts
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-MODELS = os.path.join(BASE, "models")
+MODELS = BASE
 
 st.set_page_config(page_title="WWTP BOD & COD Predictor", page_icon="💧",
                    layout="wide", initial_sidebar_state="collapsed")
@@ -72,7 +72,7 @@ for k, v in {"lang": "en", "history": [], "last": None}.items():
 # Styling
 # ----------------------------------------------------------------------------
 def inject_css():
-    bg_path = os.path.join(BASE, "assets", "bg.jpg")
+    bg_path = os.path.join(BASE, "bg.jpg")
     if os.path.exists(bg_path):
         with open(bg_path, "rb") as f:
             image = "url(data:image/jpeg;base64," + base64.b64encode(f.read()).decode() + ")"
