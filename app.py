@@ -90,6 +90,13 @@ div[class*="st-key-card"] .element-container, div[class*="st-key-card"] [data-te
 div[class*="st-key-card"] [data-testid="stElementContainer"], div[class*="st-key-card"] [data-testid="stHorizontalBlock"],
 div[class*="st-key-card"] [data-testid="stVerticalBlock"] { width: 100% !important; max-width: 100% !important; }
 
+div[class*="st-key-card"] [data-testid="stMarkdown"], div[class*="st-key-card"] [data-testid="stMarkdownContainer"],
+div[class*="st-key-card"] [data-testid="stCaptionContainer"], div[class*="st-key-card"] [data-testid="stRadio"],
+div[class*="st-key-card"] [data-testid="stSelectbox"], div[class*="st-key-card"] [data-testid="stNumberInput"],
+div[class*="st-key-card"] [data-testid="stCheckbox"], div[class*="st-key-card"] [data-testid="stButton"],
+div[class*="st-key-card"] [data-testid="stWidgetLabel"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+div[class*="st-key-card"] p, div[class*="st-key-card"] .sub, div[class*="st-key-card"] .sc { overflow-wrap: anywhere; }
+
 /* type */
 .top { display:flex; align-items:baseline; justify-content:space-between; margin: 2px 2px 12px 2px; }
 .top .t { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:700; font-size:2.35rem; letter-spacing:.01em; color:#f3f6ee; line-height:1; }
@@ -97,11 +104,11 @@ div[class*="st-key-card"] [data-testid="stVerticalBlock"] { width: 100% !importa
 .ct { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.35rem; color:#f3f6ee; line-height:1.1; }
 .ct .u { font-family:'Barlow',sans-serif; font-weight:400; font-size:.9rem; color:#a3b3a0; margin-left:6px; }
 .sub { font-size:.88rem; color:#a3b3a0; margin:1px 0 4px 0; }
-.stats { display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:10px; margin-top:4px; }
-.stat { min-width:0; overflow:hidden; }
+.stats { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:4px; }
+.stat { flex:1 1 auto; min-width:max-content; }
 .sv { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.45rem; line-height:1.05; white-space:nowrap;
   font-variant-numeric: tabular-nums; color:#f3f6ee; }
-.sc { font-size:.8rem; color:#a3b3a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sc { font-size:.8rem; color:#a3b3a0; white-space:nowrap; }
 .tiles { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin: 6px 0 8px 0; }
 .tile { min-width:0; overflow:hidden; border:1px solid rgba(237,241,232,.15); border-radius:6px; padding:8px 10px; background:rgba(255,255,255,.04); }
 .tile .tl { font-size:.82rem; color:#a3b3a0; white-space:nowrap; }
@@ -134,6 +141,7 @@ div.stButton > button[kind="primary"] p { color:#13200f !important; font-weight:
   background:rgba(255,255,255,.04); cursor:pointer; }
 [data-testid="stRadio"] label > div:first-child { display:none; }
 [data-testid="stRadio"] label p { font-size:.98rem !important; }
+[data-testid="stRadio"] [data-testid="stWidgetLabel"], [data-testid="stSelectbox"] [data-testid="stWidgetLabel"] { min-height:0; }
 [data-testid="stRadio"] label:has(input:checked) { background:#a8cf7e; border-color:#a8cf7e; }
 [data-testid="stRadio"] label:has(input:checked) p { color:#13200f !important; font-weight:600; }
 
@@ -142,6 +150,29 @@ div.stButton > button[kind="primary"] p { color:#13200f !important; font-weight:
 [data-testid="stSidebar"] table { width:100%; border-collapse:collapse; font-size:.93rem; }
 [data-testid="stSidebar"] th { background:rgba(168,207,126,.18); color:#f3f6ee !important; text-align:left; }
 [data-testid="stSidebar"] th, [data-testid="stSidebar"] td { border:1px solid rgba(237,241,232,.20) !important; padding:7px 9px !important; color:#edf1e8 !important; }
+
+/* chart key */
+.key { margin-top:6px; }
+.key .k { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; font-size:.95rem; line-height:1.35; color:#dfe8da; }
+.key .k b { color:#f3f6ee; font-weight:600; }
+.key .symw { flex:0 0 30px; display:flex; justify-content:center; align-items:flex-start; padding-top:4px; }
+.key .sym { display:block; flex:none; }
+.key .sym.dot { width:12px; height:12px; border-radius:50%; background:#a8cf7e; margin-top:2px; }
+.key .sym.band { width:26px; height:9px; border-radius:2px; background:rgba(168,207,126,.50); margin-top:4px; }
+.key .sym.tick { width:3px; height:18px; }
+.key .sym.tick.white { background:#edf1e8; } .key .sym.tick.ochre { background:#e3ad45; }
+
+/* overflow hardening */
+div[class*="st-key-card"] { container-type: inline-size; min-width:0; }
+div[class*="st-key-card"] * { min-width:0; }
+div[class*="st-key-card"] .stat { min-width:max-content; }
+.stats .sv { font-size: 1.4rem; }
+.tile .tv { font-size: clamp(1.25rem, 9cqw, 1.9rem); }
+.ct { overflow-wrap:anywhere; }
+[data-testid="stWidgetLabel"] { min-height: 2.3em; align-items:flex-end; }
+[data-testid="stWidgetLabel"] p { font-size:.84rem !important; line-height:1.15 !important; overflow-wrap:anywhere; }
+.top { flex-wrap:wrap; gap:4px 18px; }
+.note, .foot, .sub { overflow-wrap:anywhere; }
 </style>
 """
     st.markdown(css.replace("__IMG__", image), unsafe_allow_html=True)
@@ -172,7 +203,7 @@ def out_of_range(stage, values, skip):
 
 def nice_max(*vals):
     top = max(vals)
-    step = 50 if top < 600 else 100
+    step = 50 if top < 300 else 100
     return int(math.ceil(top / step) * step)
 
 
@@ -269,9 +300,14 @@ with st.sidebar:
         "| BOD (5-day, 20 °C) | 80 mg/L |\n"
         "| COD | 150 mg/L |")
     st.divider()
-    st.markdown("### Reading the charts")
-    st.markdown("Green dot or ring: the estimate. Pale band: the 90% interval. White tick: the typical value for the sample point. "
-                "Ochre mark: the NEQS reference.")
+    st.markdown("## Chart key")
+    st.markdown(
+        "<div class='key'>"
+        "<div class='k'><span class='symw'><span class='sym dot'></span></span><div><b>Estimate</b><br>The model's best value for your sample.</div></div>"
+        "<div class='k'><span class='symw'><span class='sym band'></span></span><div><b>Likely range</b><br>The true value falls inside this band about 9 times out of 10 (90% interval).</div></div>"
+        "<div class='k'><span class='symw'><span class='sym tick white'></span></span><div><b>Typical</b><br>The usual value at this sample point, for comparison.</div></div>"
+        "<div class='k'><span class='symw'><span class='sym tick ochre'></span></span><div><b>NEQS</b><br>The national discharge limit, shown for reference only.</div></div>"
+        "</div>", unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # Header + control bar (landscape)
@@ -340,8 +376,8 @@ for col, tag, name in ((c_bod, "bod", "BOD"), (c_cod, "cod", "COD")):
             st.markdown(f"<div class='ct'>{name}<span class='u'>mg/L · {STAGE_LABELS[last['stage']].lower()} · {last['time']}</span></div>",
                         unsafe_allow_html=True)
             st_echarts(ring_option(name, d, NEQS[tag]), height="235px", key=f"ring_{tag}_{last['time']}")
-            st.markdown(stats([(f"{d['lo']:.0f}-{d['hi']:.0f}", "90% interval"), (f"{d['base']:.0f}", "typical for point"),
-                               (f"{NEQS[tag]}", "NEQS reference")]), unsafe_allow_html=True)
+            st.markdown(stats([(f"{d['lo']:.0f}-{d['hi']:.0f}", "90% interval"), (f"{d['base']:.0f}", "typical"),
+                               (f"{NEQS[tag]}", "NEQS")]), unsafe_allow_html=True)
 with c_rng:
     with st.container(key="card_range"):
         st.markdown("<div class='ct'>Estimate against the typical value</div>"
