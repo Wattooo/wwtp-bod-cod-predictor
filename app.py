@@ -7,7 +7,6 @@ from datetime import datetime
 import joblib
 import pandas as pd
 import streamlit as st
-from streamlit_echarts import st_echarts
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,7 +17,7 @@ st.set_page_config(page_title="BOD / COD Estimator", layout="wide", initial_side
 # ----------------------------------------------------------------------------
 NEQS = {"bod": 80, "cod": 150}                      # reference marks only
 MOSS, OCHRE, BONE, MUTED = "#a8cf7e", "#e3ad45", "#edf1e8", "#a3b3a0"
-HEAT = ["#16301f", "#2f5a36", "#5f8f4e", "#a8cf7e", "#ede7b5"]
+HEAT_STOPS = [(0.00, (22, 48, 31)), (0.25, (47, 90, 54)), (0.50, (95, 143, 78)), (0.75, (168, 207, 126)), (1.00, (237, 231, 181))]
 
 STAGE_ORDER = ["Inlet", "Aeration Tank", "Effluent"]
 STAGE_LABELS = {"Inlet": "Inlet", "Aeration Tank": "Aeration tank", "Effluent": "Effluent"}
@@ -36,7 +35,7 @@ SHORT = {s[0]: s[1] for s in SENSORS}
 
 
 # ----------------------------------------------------------------------------
-# Assets
+# Assets (cached: loaded once per server process)
 # ----------------------------------------------------------------------------
 @st.cache_resource
 def load_assets():
@@ -47,8 +46,16 @@ def load_assets():
     return card, heat, joblib.load(os.path.join(BASE, "bod_model.joblib")), joblib.load(os.path.join(BASE, "cod_model.joblib"))
 
 
+@st.cache_resource
+def background_css_image():
+    bg = os.path.join(BASE, "bg.jpg")
+    if os.path.exists(bg):
+        with open(bg, "rb") as f:
+            return "url(data:image/jpeg;base64," + base64.b64encode(f.read()).decode() + ")"
+    return "linear-gradient(135deg,#0b1f1a,#10261f 50%,#06120e)"
+
+
 card, heat, bod_model, cod_model = load_assets()
-DATA_NOTE = card.get("data_note", "")
 
 disp = card.get("display")
 if disp:
@@ -65,14 +72,7 @@ for k, v in {"history": [], "last": None}.items():
 # ----------------------------------------------------------------------------
 # Styling
 # ----------------------------------------------------------------------------
-def inject_css():
-    bg = os.path.join(BASE, "bg.jpg")
-    if os.path.exists(bg):
-        with open(bg, "rb") as f:
-            image = "url(data:image/jpeg;base64," + base64.b64encode(f.read()).decode() + ")"
-    else:
-        image = "linear-gradient(135deg,#0b1f1a,#10261f 50%,#06120e)"
-    css = """
+CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 html, body, .stApp, .stApp p, .stApp label, .stApp span, .stApp div { font-family: 'Barlow', 'Segoe UI', Arial, sans-serif; }
@@ -82,63 +82,73 @@ html, body, .stApp, .stApp p, .stApp label, .stApp span, .stApp div { font-famil
 header[data-testid="stHeader"] { background: transparent; }
 .block-container { padding: 1.1rem 1.6rem 1.4rem 1.6rem; max-width: 1760px; }
 
-/* glass panels */
-div[class*="st-key-card"] { background: rgba(14,24,18,.52); backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1); border: 1px solid rgba(237,241,232,.17); border-radius: 8px;
-  padding: 14px 16px; box-sizing: border-box; }
+/* glass panels: generous padding so nothing touches an edge */
+div[class*="st-key-card"] { background: rgba(14,24,18,.55); backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1); border: 1px solid rgba(237,241,232,.18); border-radius: 8px;
+  padding: 20px 22px 30px 22px; box-sizing: border-box; min-width: 0; }
+div[class*="st-key-card"] * { min-width: 0; }
 div[class*="st-key-card"] .element-container, div[class*="st-key-card"] [data-testid="element-container"],
 div[class*="st-key-card"] [data-testid="stElementContainer"], div[class*="st-key-card"] [data-testid="stHorizontalBlock"],
-div[class*="st-key-card"] [data-testid="stVerticalBlock"] { width: 100% !important; max-width: 100% !important; }
-
-div[class*="st-key-card"] [data-testid="stMarkdown"], div[class*="st-key-card"] [data-testid="stMarkdownContainer"],
-div[class*="st-key-card"] [data-testid="stCaptionContainer"], div[class*="st-key-card"] [data-testid="stRadio"],
-div[class*="st-key-card"] [data-testid="stSelectbox"], div[class*="st-key-card"] [data-testid="stNumberInput"],
-div[class*="st-key-card"] [data-testid="stCheckbox"], div[class*="st-key-card"] [data-testid="stButton"],
-div[class*="st-key-card"] [data-testid="stWidgetLabel"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+div[class*="st-key-card"] [data-testid="stVerticalBlock"], div[class*="st-key-card"] [data-testid="stMarkdown"],
+div[class*="st-key-card"] [data-testid="stMarkdownContainer"], div[class*="st-key-card"] [data-testid="stCaptionContainer"],
+div[class*="st-key-card"] [data-testid="stRadio"], div[class*="st-key-card"] [data-testid="stSelectbox"],
+div[class*="st-key-card"] [data-testid="stNumberInput"], div[class*="st-key-card"] [data-testid="stCheckbox"],
+div[class*="st-key-card"] [data-testid="stButton"], div[class*="st-key-card"] [data-testid="stWidgetLabel"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+div[class*="st-key-card"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 div[class*="st-key-card"] p, div[class*="st-key-card"] .sub, div[class*="st-key-card"] .sc { overflow-wrap: anywhere; }
 
 /* type */
-.top { display:flex; align-items:baseline; justify-content:space-between; margin: 2px 2px 12px 2px; }
+.top { display:flex; flex-wrap:wrap; gap:4px 18px; align-items:baseline; justify-content:space-between; margin: 2px 2px 12px 2px; }
 .top .t { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:700; font-size:2.35rem; letter-spacing:.01em; color:#f3f6ee; line-height:1; }
 .top .s { font-size:1rem; color:#b5c4b0; padding-right:130px; }
-.ct { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.35rem; color:#f3f6ee; line-height:1.1; }
+.ct { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.35rem; color:#f3f6ee; line-height:1.15; overflow-wrap:anywhere; }
 .ct .u { font-family:'Barlow',sans-serif; font-weight:400; font-size:.9rem; color:#a3b3a0; margin-left:6px; }
-.sub { font-size:.88rem; color:#a3b3a0; margin:1px 0 4px 0; }
-.stats { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:4px; }
-.stat { flex:1 1 auto; min-width:max-content; }
-.sv { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.45rem; line-height:1.05; white-space:nowrap;
-  font-variant-numeric: tabular-nums; color:#f3f6ee; }
+.sub { font-size:.88rem; color:#a3b3a0; margin:2px 0 6px 0; overflow-wrap:anywhere; }
+.stats { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:6px; }
+.stat { flex:1 1 auto; min-width:max-content !important; }
+.sv { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.4rem; line-height:1.05; white-space:nowrap; font-variant-numeric: tabular-nums; color:#f3f6ee; }
 .sc { font-size:.8rem; color:#a3b3a0; white-space:nowrap; }
-.tiles { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin: 6px 0 8px 0; }
-.tile { min-width:0; overflow:hidden; border:1px solid rgba(237,241,232,.15); border-radius:6px; padding:8px 10px; background:rgba(255,255,255,.04); }
+.tiles { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin: 8px 0 10px 0; }
+.tile { min-width:0; border:1px solid rgba(237,241,232,.16); border-radius:6px; padding:9px 11px; background:rgba(255,255,255,.04); }
 .tile .tl { font-size:.82rem; color:#a3b3a0; white-space:nowrap; }
 .tile .tv { font-family:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif; font-weight:600; font-size:1.9rem; line-height:1.1; color:#f3f6ee; white-space:nowrap; }
-.note { font-size:.86rem; color:#c9d6c4; margin: 2px 2px 10px 2px; min-height:1.1rem; }
+.note { font-size:.9rem; color:#c9d6c4; margin: 2px 2px 12px 2px; min-height:1.1rem; overflow-wrap:anywhere; }
 .note b { color:#e3ad45; font-weight:600; }
-.foot { font-size:.8rem; color:#8fa08c; margin-top:6px; }
+.foot { font-size:.8rem; color:#8fa08c; margin-top:8px; overflow-wrap:anywhere; }
+
+/* drawings */
+svg.dw { display:block; width:100%; height:auto; overflow:visible; }
+svg.dw text { font-family:'Barlow',sans-serif; fill:#a3b3a0; }
+svg.dw .big { font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-weight:600; fill:#f3f6ee; }
+.ringwrap { max-width:300px; margin:0 auto; }
+.hmgrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap:14px 32px; margin-top:4px; }
+.hmgrid > div { min-width:0; }
+table.hm { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:2px; font-size:.72rem; }
+table.hm th { font-weight:500; color:#a3b3a0; text-align:center; padding:2px 0; font-size:.72rem; }
+table.hm th.rh { text-align:right; width:82px; padding-right:6px; white-space:nowrap; }
+table.hm td { text-align:center; padding:9px 0; border-radius:2px; font-family:'IBM Plex Mono',monospace; font-weight:500; overflow:hidden; }
+.hmleg { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:.78rem; color:#a3b3a0; }
+.hmleg .bar { flex:1 1 auto; height:8px; border-radius:2px; max-width:240px; }
 
 /* form controls */
-[data-testid="stWidgetLabel"] p, [data-testid="stCheckbox"] label p { color:#dfe8da !important; font-size:.9rem !important; font-weight:500; }
+[data-testid="stWidgetLabel"] { min-height:2.3em; align-items:flex-end; }
+[data-testid="stWidgetLabel"] p, [data-testid="stCheckbox"] label p { color:#dfe8da !important; font-size:.84rem !important; line-height:1.15 !important; font-weight:500; overflow-wrap:anywhere; }
 [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color:#a3b3a0 !important; font-size:.84rem; }
-[data-baseweb="input"], [data-baseweb="base-input"] { background-color: rgba(255,255,255,.07) !important;
-  border-color: rgba(237,241,232,.26) !important; border-radius: 5px !important; }
-[data-baseweb="input"] input, [data-baseweb="base-input"] input { color:#f6f9f2 !important; -webkit-text-fill-color:#f6f9f2 !important;
-  font-family:'IBM Plex Mono', monospace !important; font-size:1rem; padding-right:6px; }
+[data-baseweb="input"], [data-baseweb="base-input"] { background-color: rgba(255,255,255,.07) !important; border-color: rgba(237,241,232,.26) !important; border-radius: 5px !important; }
+[data-baseweb="input"] input, [data-baseweb="base-input"] input { color:#f6f9f2 !important; -webkit-text-fill-color:#f6f9f2 !important; font-family:'IBM Plex Mono', monospace !important; font-size:1rem; padding-right:6px; }
 [data-baseweb="input"] input:disabled { color:#7f917d !important; -webkit-text-fill-color:#7f917d !important; }
 [data-testid="stNumberInputStepUp"], [data-testid="stNumberInputStepDown"] { display:none !important; }
 [data-baseweb="select"] > div { background-color: rgba(255,255,255,.07) !important; border-color: rgba(237,241,232,.26) !important; }
 [data-baseweb="select"] div, [data-baseweb="select"] span, [data-baseweb="select"] svg { color:#f6f9f2 !important; fill:#f6f9f2 !important; }
 ul[role="listbox"] { background:#101c14 !important; } ul[role="listbox"] li, ul[role="listbox"] li * { color:#edf1e8 !important; }
 [data-baseweb="checkbox"] span { border-color: rgba(237,241,232,.55) !important; }
-div.stButton > button[kind="primary"] { background:#a8cf7e; color:#13200f; border:0; border-radius:4px; font-weight:600;
-  font-size:1.02rem; padding:.62rem 1rem; box-shadow:none; }
+div.stButton > button[kind="primary"] { background:#a8cf7e; color:#13200f; border:0; border-radius:4px; font-weight:600; font-size:1.02rem; padding:.62rem 1rem; box-shadow:none; }
 div.stButton > button[kind="primary"]:hover { background:#bcdc96; color:#13200f; }
 div.stButton > button[kind="primary"] p { color:#13200f !important; font-weight:600; }
 
 /* segmented radio */
 [data-testid="stRadio"] [role="radiogroup"] { display:flex; flex-direction:row; gap:0; }
-[data-testid="stRadio"] label { padding:6px 16px; border:1px solid rgba(237,241,232,.30); margin:0 -1px 0 0 !important;
-  background:rgba(255,255,255,.04); cursor:pointer; }
+[data-testid="stRadio"] label { padding:6px 16px; border:1px solid rgba(237,241,232,.30); margin:0 -1px 0 0 !important; background:rgba(255,255,255,.04); cursor:pointer; }
 [data-testid="stRadio"] label > div:first-child { display:none; }
 [data-testid="stRadio"] label p { font-size:.98rem !important; }
 [data-testid="stRadio"] [data-testid="stWidgetLabel"], [data-testid="stSelectbox"] [data-testid="stWidgetLabel"] { min-height:0; }
@@ -150,35 +160,18 @@ div.stButton > button[kind="primary"] p { color:#13200f !important; font-weight:
 [data-testid="stSidebar"] table { width:100%; border-collapse:collapse; font-size:.93rem; }
 [data-testid="stSidebar"] th { background:rgba(168,207,126,.18); color:#f3f6ee !important; text-align:left; }
 [data-testid="stSidebar"] th, [data-testid="stSidebar"] td { border:1px solid rgba(237,241,232,.20) !important; padding:7px 9px !important; color:#edf1e8 !important; }
-
-/* chart key */
-.key { margin-top:6px; }
-.key .k { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; font-size:.95rem; line-height:1.35; color:#dfe8da; }
+.key { margin-top:8px; }
+.key .k { display:flex; gap:12px; align-items:flex-start; margin-bottom:18px; font-size:.95rem; line-height:1.35; color:#dfe8da; }
 .key .k b { color:#f3f6ee; font-weight:600; }
-.key .symw { flex:0 0 30px; display:flex; justify-content:center; align-items:flex-start; padding-top:4px; }
+.key .symw { flex:0 0 38px; display:flex; justify-content:center; align-items:flex-start; padding-top:2px; }
 .key .sym { display:block; flex:none; }
-.key .sym.dot { width:12px; height:12px; border-radius:50%; background:#a8cf7e; margin-top:2px; }
-.key .sym.band { width:26px; height:9px; border-radius:2px; background:rgba(168,207,126,.50); margin-top:4px; }
-.key .sym.tick { width:3px; height:18px; }
+.key .sym.dot { width:18px; height:18px; border-radius:50%; background:#a8cf7e; margin-top:2px; }
+.key .sym.band { width:36px; height:16px; border-radius:3px; background:rgba(168,207,126,.55); margin-top:3px; }
+.key .sym.tick { width:8px; height:28px; border-radius:1px; }
 .key .sym.tick.white { background:#edf1e8; } .key .sym.tick.ochre { background:#e3ad45; }
-
-/* overflow hardening */
-div[class*="st-key-card"] { container-type: inline-size; min-width:0; }
-div[class*="st-key-card"] * { min-width:0; }
-div[class*="st-key-card"] .stat { min-width:max-content; }
-.stats .sv { font-size: 1.4rem; }
-.tile .tv { font-size: clamp(1.25rem, 9cqw, 1.9rem); }
-.ct { overflow-wrap:anywhere; }
-[data-testid="stWidgetLabel"] { min-height: 2.3em; align-items:flex-end; }
-[data-testid="stWidgetLabel"] p { font-size:.84rem !important; line-height:1.15 !important; overflow-wrap:anywhere; }
-.top { flex-wrap:wrap; gap:4px 18px; }
-.note, .foot, .sub { overflow-wrap:anywhere; }
 </style>
 """
-    st.markdown(css.replace("__IMG__", image), unsafe_allow_html=True)
-
-
-inject_css()
+st.markdown(CSS.replace("__IMG__", background_css_image()), unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------------
@@ -192,13 +185,21 @@ def predict(stage, values):
     out = {}
     for tag, model in (("bod", bod_model), ("cod", cod_model)):
         v = max(0.0, float(model.predict(X)[0]))
-        hw = float(card[tag]["interval_half_width_90"][stage])
+        rel = card[tag].get("interval_rel_90")
+        hw = rel[stage] * max(v, 1.0) if rel else float(card[tag]["interval_half_width_90"][stage])
         out[tag] = {"value": v, "lo": max(0.0, v - hw), "hi": v + hw, "base": float(card[tag]["stage_mean"][stage])}
     return out
 
 
 def out_of_range(stage, values, skip):
-    return [f for f in SENS_KEYS if f not in skip and (values[f] < card["ranges"][stage][f]["p5"] or values[f] > card["ranges"][stage][f]["p95"])]
+    out = []
+    for f in SENS_KEYS:
+        if f in skip:
+            continue
+        r = card["ranges"][stage][f]
+        if values[f] < r.get("p1", r["p5"]) or values[f] > r.get("p99", r["p95"]):
+            out.append(f)
+    return out
 
 
 def nice_max(*vals):
@@ -207,74 +208,115 @@ def nice_max(*vals):
     return int(math.ceil(top / step) * step)
 
 
+def tick_step(vmax):
+    for c in (10, 20, 25, 50, 100, 200, 250, 500):
+        if vmax / c <= 6:
+            return c
+    return vmax
+
+
 # ----------------------------------------------------------------------------
-# Charts
+# Drawings (inline SVG / HTML: no scripts, no iframes)
 # ----------------------------------------------------------------------------
-def ring_option(name, d, limit):
+def _pol(cx, cy, r, deg):
+    a = math.radians(deg)
+    return cx + r * math.cos(a), cy + r * math.sin(a)
+
+
+def _arc(cx, cy, r, v0, v1, vmax):
+    a0 = 135 + 270 * max(0.0, min(v0, vmax)) / vmax
+    a1 = 135 + 270 * max(0.0, min(v1, vmax)) / vmax
+    if a1 - a0 < 0.05:
+        a1 = a0 + 0.05
+    x0, y0 = _pol(cx, cy, r, a0)
+    x1, y1 = _pol(cx, cy, r, a1)
+    return f"M {x0:.2f} {y0:.2f} A {r} {r} 0 {1 if (a1 - a0) > 180 else 0} 1 {x1:.2f} {y1:.2f}"
+
+
+def ring_svg(name, d, limit):
     vmax = nice_max(d["hi"] * 1.1, limit * 1.3, d["value"] * 1.2)
-    base = {"type": "gauge", "startAngle": 225, "endAngle": -45, "min": 0, "max": vmax, "center": ["50%", "55%"], "splitNumber": 5}
-    hide = {"axisTick": {"show": False}, "splitLine": {"show": False}, "axisLabel": {"show": False}, "pointer": {"show": False},
-            "anchor": {"show": False}, "detail": {"show": False}, "title": {"show": False}}
-    ring = dict(base, radius="92%", **{
-        "axisLine": {"lineStyle": {"width": 14, "color": [[1, "rgba(237,241,232,.14)"]]}},
-        "progress": {"show": True, "width": 14, "itemStyle": {"color": MOSS}},
-        "axisTick": {"show": False}, "splitLine": {"show": False}, "axisLabel": {"show": False}, "pointer": {"show": False},
-        "anchor": {"show": False},
-        "title": {"offsetCenter": [0, "30%"], "color": MUTED, "fontSize": 13},
-        "detail": {"valueAnimation": True, "formatter": "{value}", "fontSize": 40, "fontWeight": 600, "color": "#f3f6ee",
-                   "fontFamily": "Barlow Condensed, Arial Narrow, sans-serif", "offsetCenter": [0, "-2%"]},
-        "data": [{"value": round(d["value"], 1), "name": "mg/L " + name}]})
-    span = dict(base, radius="72%", **hide, axisLine={"lineStyle": {"width": 5, "color": [
-        [d["lo"] / vmax, "rgba(0,0,0,0)"], [d["hi"] / vmax, "rgba(237,241,232,.60)"], [1, "rgba(0,0,0,0)"]]}}, data=[{"value": 0}])
-    lim = limit / vmax
-    mark = dict(base, radius="100%", **hide, axisLine={"lineStyle": {"width": 24, "color": [
-        [max(lim - 0.006, 0), "rgba(0,0,0,0)"], [min(lim + 0.006, 1), OCHRE], [1, "rgba(0,0,0,0)"]]}}, data=[{"value": 0}])
-    return {"series": [ring, span, mark]}
+    cx, cy, R = 110, 108, 82
+    lx0, ly0 = _pol(cx, cy, R - 13, 135 + 270 * limit / vmax)
+    lx1, ly1 = _pol(cx, cy, R + 13, 135 + 270 * limit / vmax)
+    ex0, ey0 = _pol(cx, cy, R, 135)
+    ex1, ey1 = _pol(cx, cy, R, 45)
+    return (
+        f"<div class='ringwrap'><svg class='dw' viewBox='0 0 220 200' role='img' aria-label='{name} estimate {d['value']:.1f} mg/L'>"
+        f"<path d='{_arc(cx, cy, R, 0, vmax, vmax)}' fill='none' stroke='rgba(237,241,232,.14)' stroke-width='15'/>"
+        f"<path d='{_arc(cx, cy, R, 0, d['value'], vmax)}' fill='none' stroke='{MOSS}' stroke-width='15'/>"
+        f"<path d='{_arc(cx, cy, R - 21, d['lo'], d['hi'], vmax)}' fill='none' stroke='rgba(237,241,232,.65)' stroke-width='4'/>"
+        f"<line x1='{lx0:.1f}' y1='{ly0:.1f}' x2='{lx1:.1f}' y2='{ly1:.1f}' stroke='{OCHRE}' stroke-width='4'/>"
+        f"<text x='{cx}' y='{cy + 8}' text-anchor='middle' class='big' style='font-size:{38 if len(f"{d['value']:.1f}") <= 5 else 32}px'>{d['value']:.1f}</text>"
+        f"<text x='{cx}' y='{cy + 30}' text-anchor='middle' style='font-size:12.5px'>mg/L {name}</text>"
+        f"<text x='{ex0 + 2:.1f}' y='{ey0 + 20:.1f}' text-anchor='middle' style='font-size:11px'>0</text>"
+        f"<text x='{ex1 - 2:.1f}' y='{ey1 + 20:.1f}' text-anchor='middle' style='font-size:11px'>{vmax}</text>"
+        f"</svg></div>")
 
 
-def range_option(name, d, limit):
+def range_svg(d, limit):
     vmax = nice_max(d["hi"] * 1.1, limit * 1.3, d["base"] * 1.2)
-    return {
-        "grid": {"left": 4, "right": 18, "top": 20, "bottom": 20, "containLabel": True},
-        "tooltip": {"trigger": "item"},
-        "xAxis": {"type": "value", "min": 0, "max": vmax, "axisLabel": {"color": MUTED},
-                  "splitLine": {"lineStyle": {"color": "rgba(237,241,232,.09)"}}},
-        "yAxis": {"type": "category", "data": [name], "axisLabel": {"show": False}, "axisTick": {"show": False}, "axisLine": {"show": False}},
-        "series": [
-            {"type": "bar", "stack": "r", "silent": True, "data": [round(d["lo"], 1)], "itemStyle": {"color": "transparent"}},
-            {"type": "bar", "stack": "r", "name": "90% interval", "barWidth": 16, "data": [round(d["hi"] - d["lo"], 1)],
-             "itemStyle": {"color": "rgba(168,207,126,.38)", "borderRadius": 2},
-             "markLine": {"symbol": "none", "silent": True, "lineStyle": {"color": OCHRE, "type": "solid", "width": 2},
-                          "label": {"formatter": "NEQS {c}", "color": OCHRE, "position": "end"}, "data": [{"xAxis": limit}]}},
-            {"type": "scatter", "name": "Estimate", "data": [[round(d["value"], 1), name]], "symbolSize": 13, "itemStyle": {"color": MOSS}},
-            {"type": "scatter", "name": "Stage average", "data": [[round(d["base"], 1), name]], "symbol": "rect", "symbolSize": [3, 22],
-             "itemStyle": {"color": BONE}},
-        ]}
+    x0, x1 = 16, 384
+    X = lambda v: x0 + (x1 - x0) * max(0.0, min(v, vmax)) / vmax
+    step = tick_step(vmax)
+    grid, labels = "", ""
+    for t in range(0, int(vmax) + 1, step):
+        x = X(t)
+        grid += f"<line x1='{x:.1f}' y1='34' x2='{x:.1f}' y2='80' stroke='rgba(237,241,232,.10)'/>"
+        labels += f"<text x='{x:.1f}' y='98' text-anchor='middle' style='font-size:11px'>{t}</text>"
+    xl = X(limit)
+    anchor = "end" if xl > 300 else "middle"
+    return (
+        "<svg class='dw' viewBox='0 0 400 108' role='img'>"
+        + grid
+        + f"<rect x='{X(d['lo']):.1f}' y='48' width='{max(X(d['hi']) - X(d['lo']), 2):.1f}' height='18' rx='2' fill='rgba(168,207,126,.42)'/>"
+        + f"<rect x='{X(d['base']) - 1.5:.1f}' y='42' width='3' height='30' fill='{BONE}'/>"
+        + f"<circle cx='{X(d['value']):.1f}' cy='57' r='7.5' fill='{MOSS}'/>"
+        + f"<rect x='{xl - 1.5:.1f}' y='30' width='3' height='46' fill='{OCHRE}'/>"
+        + f"<text x='{xl:.1f}' y='22' text-anchor='{anchor}' style='font-size:11.5px;fill:{OCHRE}'>NEQS {limit}</text>"
+        + labels + "</svg>")
 
 
-def heat_option(matrix, xs, ys):
+def _heat_color(frac):
+    frac = max(0.0, min(1.0, frac))
+    for (f0, c0), (f1, c1) in zip(HEAT_STOPS, HEAT_STOPS[1:]):
+        if frac <= f1:
+            t = (frac - f0) / (f1 - f0)
+            return tuple(round(a + (b - a) * t) for a, b in zip(c0, c1))
+    return HEAT_STOPS[-1][1]
+
+
+def heat_table(matrix, xs, ys):
     flat = [v for row in matrix for v in row if v is not None]
     lo_v, hi_v = min(flat), max(flat)
     span = max(hi_v - lo_v, 1e-9)
-    data = [{"value": [j, i, v], "label": {"color": "#10200f" if (v - lo_v) / span > 0.62 else "#f3f6ee"}}
-            for i, row in enumerate(matrix) for j, v in enumerate(row) if v is not None]
-    return {"tooltip": {"position": "top"},
-            "grid": {"left": 4, "right": 8, "top": 4, "bottom": 46, "containLabel": True},
-            "xAxis": {"type": "category", "data": xs, "axisLabel": {"color": MUTED}},
-            "yAxis": {"type": "category", "data": ys, "axisLabel": {"color": MUTED}},
-            "visualMap": {"min": math.floor(lo_v), "max": math.ceil(hi_v), "calculable": False, "orient": "horizontal",
-                          "left": "center", "bottom": 0, "itemWidth": 12, "itemHeight": 110, "textStyle": {"color": MUTED},
-                          "inRange": {"color": HEAT}},
-            "series": [{"type": "heatmap", "data": data, "label": {"show": True, "fontSize": 10, "fontWeight": 600},
-                        "itemStyle": {"borderColor": "rgba(8,16,10,.55)", "borderWidth": 1}}]}
+    head = "<tr><th class='rh'></th>" + "".join(f"<th>{x}</th>" for x in xs) + "</tr>"
+    body = ""
+    for y, row in zip(ys, matrix):
+        cells = ""
+        for v in row:
+            if v is None:
+                cells += "<td style='background:rgba(255,255,255,.04)'>-</td>"
+            else:
+                fr = (v - lo_v) / span
+                r, g, b = _heat_color(fr)
+                txt = "#10200f" if fr > 0.62 else "#f3f6ee"
+                cells += f"<td title='{v:.1f} mg/L' style='background:rgb({r},{g},{b});color:{txt}'>{v:.0f}</td>"
+        body += f"<tr><th class='rh'>{y}</th>{cells}</tr>"
+    grad = ",".join(f"rgb({c[0]},{c[1]},{c[2]}) {int(f * 100)}%" for f, c in HEAT_STOPS)
+    legend = f"<div class='hmleg'><span>{lo_v:.0f}</span><div class='bar' style='background:linear-gradient(90deg,{grad})'></div><span>{hi_v:.0f} mg/L</span></div>"
+    return f"<table class='hm'>{head}{body}</table>{legend}"
 
 
-def spark_option(xs, ys):
-    return {"grid": {"left": 4, "right": 4, "top": 6, "bottom": 2}, "tooltip": {"trigger": "axis"},
-            "xAxis": {"type": "category", "show": False, "data": xs}, "yAxis": {"type": "value", "show": False, "scale": True},
-            "series": [{"type": "line", "data": ys, "symbol": "circle", "symbolSize": 5,
-                        "lineStyle": {"width": 2, "color": MOSS}, "itemStyle": {"color": MOSS},
-                        "areaStyle": {"color": MOSS, "opacity": 0.10}}]}
+def spark_svg(ys):
+    lo_v, hi_v = min(ys), max(ys)
+    span = max(hi_v - lo_v, 1e-9)
+    n = len(ys)
+    pts = [(8 + 184 * i / (n - 1), 40 - 32 * (y - lo_v) / span) for i, y in enumerate(ys)]
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    area = f"8,46 {line} 192,46"
+    lx, ly = pts[-1]
+    return (f"<svg class='dw' viewBox='0 0 200 52' role='img'><polygon points='{area}' fill='rgba(168,207,126,.12)'/>"
+            f"<polyline points='{line}' fill='none' stroke='{MOSS}' stroke-width='2'/><circle cx='{lx:.1f}' cy='{ly:.1f}' r='3.5' fill='{MOSS}'/></svg>")
 
 
 def stats(items):
@@ -373,28 +415,29 @@ for col, tag, name in ((c_bod, "bod", "BOD"), (c_cod, "cod", "COD")):
     d = out[tag]
     with col:
         with st.container(key=f"card_{tag}"):
-            st.markdown(f"<div class='ct'>{name}<span class='u'>mg/L · {STAGE_LABELS[last['stage']].lower()} · {last['time']}</span></div>",
+            st.markdown(f"<div class='ct'>{name}<span class='u'>mg/L · {STAGE_LABELS[last['stage']].lower()} · {last['time']}</span></div>"
+                        + ring_svg(name, d, NEQS[tag])
+                        + stats([(f"{d['lo']:.0f}-{d['hi']:.0f}", "90% interval"), (f"{d['base']:.0f}", "typical"), (f"{NEQS[tag]}", "NEQS")]),
                         unsafe_allow_html=True)
-            st_echarts(ring_option(name, d, NEQS[tag]), height="235px", key=f"ring_{tag}_{last['time']}")
-            st.markdown(stats([(f"{d['lo']:.0f}-{d['hi']:.0f}", "90% interval"), (f"{d['base']:.0f}", "typical"),
-                               (f"{NEQS[tag]}", "NEQS")]), unsafe_allow_html=True)
 with c_rng:
     with st.container(key="card_range"):
         st.markdown("<div class='ct'>Estimate against the typical value</div>"
                     f"<div class='sub'><span style='color:{MOSS}'>●</span> estimate &nbsp; "
-                    f"<span style='color:{BONE}'>|</span> typical &nbsp; <span style='color:{MOSS};opacity:.55'>▬</span> 90% interval &nbsp; "
-                    f"<span style='color:{OCHRE}'>|</span> NEQS</div>", unsafe_allow_html=True)
-        st.caption("BOD (mg/L)")
-        st_echarts(range_option("BOD", out["bod"], NEQS["bod"]), height="108px", key=f"rng_bod_{last['time']}")
-        st.caption("COD (mg/L)")
-        st_echarts(range_option("COD", out["cod"], NEQS["cod"]), height="108px", key=f"rng_cod_{last['time']}")
+                    f"<span style='color:{BONE}'>|</span> typical &nbsp; <span style='color:{MOSS};opacity:.6'>▬</span> 90% interval &nbsp; "
+                    f"<span style='color:{OCHRE}'>|</span> NEQS</div>"
+                    "<div class='sub' style='margin-top:10px'>BOD (mg/L)</div>" + range_svg(out["bod"], NEQS["bod"])
+                    + "<div class='sub' style='margin-top:14px'>COD (mg/L)</div>" + range_svg(out["cod"], NEQS["cod"]),
+                    unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
-# Row 3: recorded patterns + accuracy + session
+# Row 3: recorded patterns (own fragment: switching views does not rerun the page) + accuracy + session
 # ----------------------------------------------------------------------------
-st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 c_heat, c_side = st.columns([3.2, 1.2], gap="small")
-with c_heat:
+
+
+@st.fragment
+def patterns_card():
     with st.container(key="card_heat"):
         a, b, c = st.columns([2.2, 1.1, 1.3])
         with a:
@@ -405,31 +448,32 @@ with c_heat:
         with c:
             hs = st.selectbox("Weekday view", STAGE_ORDER, index=2, format_func=lambda s: STAGE_LABELS[s], key="hs",
                               label_visibility="collapsed")
-        m1, m2 = st.columns(2)
-        with m1:
-            st.caption(f"{hp} by stage and month (mg/L)")
-            st_echarts(heat_option(heat["month_stage"][hp], heat["months"], heat["stages"]), height="250px", key=f"h1_{hp}")
-        with m2:
-            st.caption(f"{hp} by shift and weekday, {STAGE_LABELS[hs].lower()} (mg/L)")
-            st_echarts(heat_option(heat["weekday_shift"][hp][hs], heat["weekdays"], heat["shifts"]), height="250px", key=f"h2_{hp}_{hs}")
+        cap1 = f"<div class='sub' style='margin-top:10px'>{hp} by stage and month (mg/L)</div>"
+        cap2 = f"<div class='sub' style='margin-top:10px'>{hp} by shift and weekday, {STAGE_LABELS[hs].lower()} (mg/L)</div>"
+        t1 = heat_table(heat["month_stage"][hp], heat["months"], [STAGE_LABELS[s] for s in heat["stages"]])
+        t2 = heat_table(heat["weekday_shift"][hp][hs], heat["weekdays"], heat["shifts"])
+        st.markdown(f"<div class='hmgrid'><div>{cap1}{t1}</div><div>{cap2}{t2}</div></div>", unsafe_allow_html=True)
+
+
+with c_heat:
+    patterns_card()
 with c_side:
     with st.container(key="card_acc"):
-        st.markdown("<div class='ct'>Accuracy</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='tiles'><div class='tile'><div class='tl'>BOD R²</div><div class='tv'>{R2['BOD']:.2f}</div></div>"
+        st.markdown("<div class='ct'>Accuracy</div>"
+                    f"<div class='tiles'><div class='tile'><div class='tl'>BOD R²</div><div class='tv'>{R2['BOD']:.2f}</div></div>"
                     f"<div class='tile'><div class='tl'>COD R²</div><div class='tv'>{R2['COD']:.2f}</div></div></div>"
                     f"<div class='sub'>Typical error is about {ERR['BOD']:.0f}% for BOD and {ERR['COD']:.0f}% for COD.</div>",
                     unsafe_allow_html=True)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     with st.container(key="card_session"):
-        st.markdown("<div class='ct'>This session</div>", unsafe_allow_html=True)
         hist = st.session_state.history
+        body = "<div class='ct'>This session</div>"
         if len(hist) < 2:
-            st.caption("Make two or more predictions to see the trend.")
+            body += "<div class='sub'>Make two or more predictions to see the trend.</div>"
         else:
-            xs = [h["t"] for h in hist]
-            st.caption("BOD (mg/L)")
-            st_echarts(spark_option(xs, [round(h["bod"], 1) for h in hist]), height="62px", key="sp_bod")
-            st.caption("COD (mg/L)")
-            st_echarts(spark_option(xs, [round(h["cod"], 1) for h in hist]), height="62px", key="sp_cod")
+            body += ("<div class='sub' style='margin-top:8px'>BOD (mg/L)</div>" + spark_svg([h["bod"] for h in hist])
+                     + "<div class='sub' style='margin-top:8px'>COD (mg/L)</div>" + spark_svg([h["cod"] for h in hist]))
+        st.markdown(body, unsafe_allow_html=True)
 
 st.markdown("<div class='foot'>Research prototype, FYDP, IIUI 2022-2026. Estimates are not laboratory results; confirm with laboratory analysis before any reporting.</div>",
             unsafe_allow_html=True)
